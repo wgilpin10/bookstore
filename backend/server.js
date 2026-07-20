@@ -5,6 +5,9 @@ const cors = require("cors");
 const pool = require("./config/database");
 const bookRoutes = require("./routes/bookRoutes");
 const orderRoutes = require("./routes/orderRoutes");
+const customerRoutes = require("./routes/customerRoutes");
+const userRoutes = require("./routes/userRoutes");
+const inviteModel = require("./models/inviteModel");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,6 +43,8 @@ app.get("/api/health", async (_req, res) => {
 
 app.use("/api/books", bookRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/customers", customerRoutes);
+app.use("/api/users", userRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({ success: false, error: "Route not found" });
@@ -48,12 +53,15 @@ app.use((_req, res) => {
 async function startServer() {
   try {
     await pool.query("SELECT 1");
+    await inviteModel.ensureTable();
     console.log("Connected to PostgreSQL");
 
     app.listen(PORT, () => {
       console.log(`Server running at http://localhost:${PORT}`);
       console.log(`Books API: http://localhost:${PORT}/api/books`);
       console.log(`Orders API: http://localhost:${PORT}/api/orders`);
+      console.log(`Customers API: http://localhost:${PORT}/api/customers`);
+      console.log(`Users API: http://localhost:${PORT}/api/users`);
     });
   } catch (err) {
     console.error("Failed to start server:", err.message);

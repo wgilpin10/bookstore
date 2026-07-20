@@ -7,12 +7,18 @@
     "start": "node server.js",
     "dev": "node --watch server.js"
   },
-  "keywords": ["books", "api", "mvp", "postgresql"],
+  "keywords": [
+    "books",
+    "api",
+    "mvp",
+    "postgresql"
+  ],
   "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "nodemailer": "^9.0.3",
     "pg": "^8.13.1"
   }
 }
