@@ -1,16 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { BookMarked, ChevronRight } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { BookMarked, ChevronRight, LogOut } from "lucide-react";
 import { navItems } from "@/lib/navigation";
+import { AuthUser } from "@/types/user";
 
-export default function Sidebar() {
+interface SidebarProps {
+  user: AuthUser;
+}
+
+export default function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.replace("/login");
+    router.refresh();
+  }
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-brand-200/60 bg-white">
-      {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-brand-200/60 px-6">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-white">
           <BookMarked className="h-5 w-5" />
@@ -23,12 +34,13 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-brand-400">
           Menu
         </p>
-        {navItems.map((item) => {
+        {navItems
+          .filter((item) => !item.superAdminOnly || user.isSuperAdmin)
+          .map((item) => {
           const isActive =
             pathname === item.href ||
             (item.href !== "/" && pathname.startsWith(item.href));
@@ -66,20 +78,29 @@ export default function Sidebar() {
               {isActive && <ChevronRight className="h-4 w-4 text-white/70" />}
             </Link>
           );
-        })}
+          })}
       </nav>
 
-      {/* Footer */}
       <div className="border-t border-brand-200/60 p-4">
-        <div className="rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 p-4 text-white">
-          <p className="text-sm font-semibold">Need help?</p>
-          <p className="mt-1 text-xs text-brand-200">
-            Check our docs for inventory tips and best practices.
+        <div className="mb-3 rounded-xl border border-brand-100 bg-brand-50/80 px-3 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-400">
+            Signed in
           </p>
-          <button className="mt-3 w-full rounded-lg bg-white/15 px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition hover:bg-white/25">
-            View Documentation
-          </button>
+          <p className="mt-1 truncate text-sm font-semibold text-brand-900">
+            {user.username}
+          </p>
+          {user.isSuperAdmin && (
+            <p className="mt-0.5 text-xs text-brand-500">Super admin</p>
+          )}
         </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-brand-200 bg-white px-3 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-50"
+        >
+          <LogOut className="h-4 w-4" />
+          Sign out
+        </button>
       </div>
     </aside>
   );

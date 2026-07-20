@@ -13,6 +13,7 @@ export interface NavItem {
   href: string;
   icon: LucideIcon;
   badge?: string;
+  superAdminOnly?: boolean;
 }
 
 export const navItems: NavItem[] = [
@@ -20,6 +21,12 @@ export const navItems: NavItem[] = [
   { label: "Books", href: "/books", icon: BookOpen },
   { label: "Orders", href: "/orders", icon: ShoppingBag },
   { label: "Customers", href: "/customers", icon: Users },
-  { label: "Analytics", href: "/analytics", icon: BarChart3, badge: "Soon" },
-  { label: "Settings", href: "/settings", icon: Settings, badge: "Soon" },
+  { label: "Analytics", href: "/analytics", icon: BarChart3 },
+  {
+    label: "User Management",
+    href: "/users",
+    icon: Users,
+    superAdminOnly: true,
+  },
+  { label: "Profile", href: "/settings", icon: Settings },
 ];

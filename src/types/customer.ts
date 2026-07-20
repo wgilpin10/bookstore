@@ -7,6 +7,15 @@ export interface CustomerOrderSummary {
   soldAt: string;
 }
 
+/** One recorded sale that may contain multiple books. */
+export interface CustomerSaleGroup {
+  saleId: string;
+  soldAt: string;
+  totalRevenue: number;
+  totalProfit: number;
+  items: CustomerOrderSummary[];
+}
+
 export interface Customer {
   id: string;
   name: string;
@@ -15,7 +24,9 @@ export interface Customer {
   totalProfit: number;
   orderCount: number;
   lastOrderAt: string;
-  orders: CustomerOrderSummary[];
+  rank?: number;
+  /** Multi-book sales available for the expandable dropdown. */
+  sales: CustomerSaleGroup[];
 }
 
 export interface SaleLineRecord {
@@ -31,6 +42,7 @@ export interface SaleLineRecord {
 
 export interface SaleRecord {
   id: string;
+  customerId?: string;
   customerName: string;
   customerPhone: string;
   soldAt: string;

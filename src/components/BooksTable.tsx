@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Book } from "@/types/book";
@@ -19,7 +19,14 @@ import {
 import BooksFilterPanel from "@/components/BooksFilterPanel";
 import BooksExportMenu from "@/components/BooksExportMenu";
 import EditBookModal from "@/components/EditBookModal";
-import { Search, Filter, Trash2, Pencil, ArrowRight } from "lucide-react";
+import {
+  Search,
+  Filter,
+  Trash2,
+  Pencil,
+  ArrowRight,
+  MoreHorizontal,
+} from "lucide-react";
 
 interface BooksTableProps {
   books: Book[];
@@ -65,6 +72,71 @@ async function requestDelete(
   } catch {
     return { error: "Failed to delete book(s). Please try again." };
   }
+}
+
+function BookActionsMenu({
+  book,
+  disabled,
+  onEdit,
+  onDelete,
+}: {
+  book: Book;
+  disabled: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    function close(event: MouseEvent) {
+      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative inline-flex">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        disabled={disabled}
+        aria-label={`Actions for ${book.title}`}
+        aria-expanded={open}
+        className="rounded-lg p-2 text-brand-500 transition hover:bg-brand-100 hover:text-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <MoreHorizontal className="h-5 w-5" />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-10 z-20 w-44 overflow-hidden rounded-xl border border-brand-200 bg-white py-1 text-left shadow-lg">
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onEdit();
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-brand-700 hover:bg-brand-50"
+          >
+            <Pencil className="h-4 w-4" />
+            Edit book
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onDelete();
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete book
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function BooksTable({
@@ -367,7 +439,7 @@ export default function BooksTable({
               <th className="px-6 py-3.5 text-center text-xs font-semibold uppercase tracking-wider text-brand-500">
                 Status
               </th>
-              <th className="w-24 px-4 py-3.5 text-center text-xs font-semibold uppercase tracking-wider text-brand-500">
+              <th className="w-20 px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-brand-500">
                 Actions
               </th>
             </tr>
@@ -461,27 +533,13 @@ export default function BooksTable({
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-4 text-center">
-                    <div className="inline-flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setEditingBook(book)}
-                        disabled={isDeleting || bulkDeleting}
-                        aria-label={`Edit ${book.title}`}
-                        className="inline-flex rounded-lg p-2 text-brand-400 transition hover:bg-brand-50 hover:text-brand-600 disabled:opacity-50"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleDeleteBook(book)}
-                        disabled={isDeleting || bulkDeleting}
-                        aria-label={`Delete ${book.title}`}
-                        className="inline-flex rounded-lg p-2 text-brand-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                  <td className="px-4 py-4 text-right">
+                    <BookActionsMenu
+                      book={book}
+                      disabled={isDeleting || bulkDeleting}
+                      onEdit={() => setEditingBook(book)}
+                      onDelete={() => void handleDeleteBook(book)}
+                    />
                   </td>
                 </tr>
               );

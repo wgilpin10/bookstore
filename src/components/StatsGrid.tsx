@@ -16,7 +16,7 @@ interface StatsGridProps {
 
 export default function StatsGrid({ stats }: StatsGridProps) {
   return (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid auto-rows-fr grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
       <StatCard
         title="Total Titles"
         value={formatNumber(stats.totalBooks)}

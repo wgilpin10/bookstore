@@ -1,6 +1,10 @@
 import { getBooks } from "@/lib/books";
-import { createOrderInApi, fetchOrdersFromApi } from "@/lib/orders-api";
+import {
+  applySaleToCustomerInApi,
+  ensureCustomerInApi,
+} from "@/lib/customers-api";
 import { buildCustomerLookup } from "@/lib/customers";
+import { createOrderInApi, fetchOrdersFromApi } from "@/lib/orders-api";
 import { appendSale, readSales } from "@/lib/sales-store";
 import { SaleLineRecord, SaleRecord } from "@/types/customer";
 import {
@@ -47,6 +51,10 @@ export async function createSale(input: CreateSaleInput): Promise<{
     throw new Error("Customer phone number is required.");
   }
 
+  if (!/^\d+$/.test(customerPhone)) {
+    throw new Error("Phone number must contain only digits.");
+  }
+
   if (!input.items.length) {
     throw new Error("Add at least one book to the sale.");
   }
@@ -80,6 +88,11 @@ export async function createSale(input: CreateSaleInput): Promise<{
     requestedByBook.set(book.id, totalForBook);
   }
 
+  const customer = await ensureCustomerInApi({
+    name: customerName,
+    phone: customerPhone,
+  });
+
   const createdOrders: Order[] = [];
   const saleItems: SaleLineRecord[] = [];
 
@@ -91,8 +104,9 @@ export async function createSale(input: CreateSaleInput): Promise<{
       bookId: book.id,
       quantity: Number(item.quantity),
       soldAt: input.soldAt,
-      customerName,
-      customerPhone,
+      customerId: customer.id,
+      customerName: customer.name || customerName,
+      customerPhone: customer.phone || customerPhone,
     });
 
     createdOrders.push(order);
@@ -119,13 +133,25 @@ export async function createSale(input: CreateSaleInput): Promise<{
     input.soldAt ||
     new Date().toISOString();
 
+  const totalRevenue = saleItems.reduce((sum, item) => sum + item.revenue, 0);
+  const totalProfit = saleItems.reduce((sum, item) => sum + item.profit, 0);
+
+  await applySaleToCustomerInApi({
+    customer,
+    saleCount: 1,
+    revenue: totalRevenue,
+    profit: totalProfit,
+    soldAt,
+  });
+
   const sale: SaleRecord = {
     id: `sale_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    customerName,
-    customerPhone,
+    customerId: customer.id,
+    customerName: customer.name || customerName,
+    customerPhone: customer.phone || customerPhone,
     soldAt,
-    totalRevenue: saleItems.reduce((sum, item) => sum + item.revenue, 0),
-    totalProfit: saleItems.reduce((sum, item) => sum + item.profit, 0),
+    totalRevenue,
+    totalProfit,
     items: saleItems,
     createdAt: new Date().toISOString(),
   };

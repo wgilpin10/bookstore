@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Order } from "@/types/order";
 import { Book } from "@/types/book";
 import {
@@ -14,16 +14,29 @@ import {
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import StatCard from "@/components/StatCard";
 import RecordSaleButton from "@/components/RecordSaleButton";
+import OrderAdminActions from "@/components/OrderAdminActions";
 import PageHeader from "@/components/PageHeader";
 import { DollarSign, ShoppingBag, TrendingUp } from "lucide-react";
 
 interface OrdersViewProps {
   orders: Order[];
   books: Book[];
+  isSuperAdmin?: boolean;
 }
 
-export default function OrdersView({ orders, books }: OrdersViewProps) {
+const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, "all"] as const;
+type PageSizeOption = (typeof PAGE_SIZE_OPTIONS)[number];
+
+export default function OrdersView({
+  orders,
+  books,
+  isSuperAdmin = false,
+}: OrdersViewProps) {
   const [monthFilter, setMonthFilter] = useState<string>("all");
+  const [selectedPageSize, setSelectedPageSize] =
+    useState<PageSizeOption>(10);
+  const [currentPage, setCurrentPage] = useState(0);
+
   const availableMonths = useMemo(() => getAvailableMonths(orders), [orders]);
   const currentMonthKey = getCurrentMonthKey();
 
@@ -36,6 +49,35 @@ export default function OrdersView({ orders, books }: OrdersViewProps) {
     () => calculateOrderStats(orders, filteredOrders),
     [orders, filteredOrders]
   );
+
+  const isPaginated = selectedPageSize !== "all";
+  const pageSize =
+    selectedPageSize === "all"
+      ? Math.max(filteredOrders.length, 1)
+      : selectedPageSize;
+  const totalPages = isPaginated
+    ? Math.max(1, Math.ceil(filteredOrders.length / pageSize))
+    : 1;
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [monthFilter, selectedPageSize, filteredOrders.length]);
+
+  useEffect(() => {
+    if (currentPage > totalPages - 1) {
+      setCurrentPage(Math.max(0, totalPages - 1));
+    }
+  }, [currentPage, totalPages]);
+
+  const pageStart = isPaginated ? currentPage * pageSize : 0;
+  const pageEnd = isPaginated
+    ? Math.min(pageStart + pageSize, filteredOrders.length)
+    : filteredOrders.length;
+  const displayedOrders = filteredOrders.slice(pageStart, pageEnd);
+  const canGoPrevious = isPaginated && currentPage > 0;
+  const canGoNext = isPaginated && currentPage < totalPages - 1;
+  const rangeStart = filteredOrders.length === 0 ? 0 : pageStart + 1;
+  const rangeEnd = pageEnd;
 
   const filterLabel =
     monthFilter === "all"
@@ -86,7 +128,8 @@ export default function OrdersView({ orders, books }: OrdersViewProps) {
               </h2>
               <p className="mt-0.5 text-sm text-brand-500">
                 {filteredOrders.length}{" "}
-                {filteredOrders.length === 1 ? "order" : "orders"} shown
+                {filteredOrders.length === 1 ? "order" : "orders"} in{" "}
+                {filterLabel}
               </p>
             </div>
 
@@ -141,20 +184,25 @@ export default function OrdersView({ orders, books }: OrdersViewProps) {
                   <th className="px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-brand-500">
                     Profit
                   </th>
+                  {isSuperAdmin && (
+                    <th className="px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-brand-500">
+                      Actions
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-brand-100">
-                {filteredOrders.length === 0 && (
+                {displayedOrders.length === 0 && (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={isSuperAdmin ? 9 : 8}
                       className="px-6 py-12 text-center text-sm text-brand-500"
                     >
                       No orders for this period. Record a sale to get started.
                     </td>
                   </tr>
                 )}
-                {filteredOrders.map((order, index) => (
+                {displayedOrders.map((order, index) => (
                   <tr
                     key={order.id}
                     className={`transition-colors hover:bg-brand-50/50 ${
@@ -208,10 +256,75 @@ export default function OrdersView({ orders, books }: OrdersViewProps) {
                         {formatCurrency(order.profit)}
                       </p>
                     </td>
+                    {isSuperAdmin && (
+                      <td className="px-6 py-4 text-right">
+                        <OrderAdminActions order={order} />
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="flex flex-col gap-4 border-t border-brand-200/60 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-4">
+              <p className="text-sm text-brand-500">
+                {filteredOrders.length === 0
+                  ? "No orders to display"
+                  : isPaginated
+                    ? `Showing ${rangeStart}-${rangeEnd} of ${filteredOrders.length} orders`
+                    : `Showing all ${filteredOrders.length} orders`}
+              </p>
+              <div className="flex items-center gap-2">
+                <label htmlFor="orders-page-size" className="text-sm text-brand-500">
+                  Show
+                </label>
+                <select
+                  id="orders-page-size"
+                  value={selectedPageSize}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setSelectedPageSize(
+                      value === "all"
+                        ? "all"
+                        : (Number(value) as Exclude<PageSizeOption, "all">)
+                    );
+                  }}
+                  className="rounded-lg border border-brand-200 bg-white px-3 py-1.5 text-sm text-brand-900 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-400/20"
+                >
+                  {PAGE_SIZE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option === "all" ? "All" : option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {isPaginated && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-brand-500">
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((page) => page - 1)}
+                  disabled={!canGoPrevious}
+                  className="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:bg-brand-50 disabled:cursor-not-allowed disabled:text-brand-400"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((page) => page + 1)}
+                  disabled={!canGoNext}
+                  className="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:bg-brand-50 disabled:cursor-not-allowed disabled:text-brand-400"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

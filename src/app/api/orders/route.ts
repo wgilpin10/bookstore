@@ -91,7 +91,8 @@ export async function POST(request: Request) {
       message.includes("not found") ||
       message.includes("required") ||
       message.includes("Add at least") ||
-      message.includes("Customer")
+      message.includes("Customer") ||
+      message.includes("Phone")
         ? 400
         : 500;
     return NextResponse.json({ success: false, error: message }, { status });

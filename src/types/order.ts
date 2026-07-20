@@ -30,8 +30,19 @@ export interface CreateOrderInput {
   bookId: string;
   quantity: number;
   soldAt?: string;
+  customerId?: string;
   customerName?: string;
   customerPhone?: string;
+}
+
+export interface UpdateOrderInput {
+  bookTitle: string;
+  author: string;
+  quantity: number;
+  unitPrice: number;
+  revenue?: number;
+  profit?: number;
+  soldAt?: string;
 }
 
 export interface OrderStats {
@@ -40,3 +51,4 @@ export interface OrderStats {
   orderCount: number;
   currentMonthOrderCount: number;
 }
+

@@ -64,7 +64,31 @@ export function calculateOrderStats(
 }
 
 export function formatSoldAt(soldAt: string): string {
-  // Display the exact date_time value returned by the API.
   if (!soldAt) return "—";
-  return soldAt;
+
+  // Prefer wall-clock components from the API string so "11:41Z" still reads as 11:41.
+  const match = soldAt.match(
+    /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/
+  );
+
+  const date = match
+    ? new Date(
+        Number(match[1]),
+        Number(match[2]) - 1,
+        Number(match[3]),
+        Number(match[4]),
+        Number(match[5]),
+        Number(match[6] ?? 0)
+      )
+    : new Date(soldAt);
+
+  if (Number.isNaN(date.getTime())) return soldAt;
+
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }

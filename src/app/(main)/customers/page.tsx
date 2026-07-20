@@ -11,7 +11,7 @@ export default async function CustomersPage() {
     <>
       <PageHeader
         title="Customers"
-        description="See who is buying and who spends the most."
+        description="Customers are identified by phone number. Rank the top 10 by profit or separate sales."
       />
       <div className="p-8">
         <CustomersView customers={customers} />

@@ -115,6 +115,12 @@ export default function RecordSaleButton({ books }: RecordSaleButtonProps) {
       return;
     }
 
+    if (!/^\d+$/.test(customerPhone.trim())) {
+      setError("Phone number must contain only digits.");
+      setLoading(false);
+      return;
+    }
+
     if (!soldAt.trim()) {
       setError("Enter a valid sale date and time.");
       setLoading(false);
@@ -228,10 +234,29 @@ export default function RecordSaleButton({ books }: RecordSaleButtonProps) {
                     <input
                       id="sale-customer-phone"
                       type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      autoComplete="tel"
                       value={customerPhone}
-                      onChange={(event) => setCustomerPhone(event.target.value)}
+                      onChange={(event) =>
+                        setCustomerPhone(event.target.value.replace(/\D/g, ""))
+                      }
+                      onKeyDown={(event) => {
+                        // Allow control/navigation keys; block other non-digit characters.
+                        if (
+                          event.ctrlKey ||
+                          event.metaKey ||
+                          event.altKey ||
+                          event.key.length !== 1
+                        ) {
+                          return;
+                        }
+                        if (!/\d/.test(event.key)) {
+                          event.preventDefault();
+                        }
+                      }}
                       required
-                      placeholder="e.g. 555-0100"
+                      placeholder="e.g. 07123456789"
                       className="w-full rounded-lg border border-brand-200 bg-brand-50/50 px-3 py-2 text-sm text-brand-900 placeholder:text-brand-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-400/20"
                     />
                   </div>

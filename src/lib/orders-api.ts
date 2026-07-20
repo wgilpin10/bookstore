@@ -1,5 +1,5 @@
 import { ORDERS_API_URL } from "@/lib/config";
-import { CreateOrderInput, Order } from "@/types/order";
+import { CreateOrderInput, Order, UpdateOrderInput } from "@/types/order";
 
 interface ApiOrder {
   id: number;
@@ -10,6 +10,7 @@ interface ApiOrder {
   unit_price?: number | null;
   revenue?: number | null;
   profit?: number | null;
+  customer_id?: number | null;
   customer_name?: string | null;
   customer_phone?: string | null;
   name?: string | null;
@@ -134,6 +135,13 @@ export async function createOrderInApi(
       : input.soldAt;
   }
 
+  if (input.customerId?.trim()) {
+    const customerId = Number(input.customerId);
+    if (Number.isFinite(customerId)) {
+      payload.customer_id = customerId;
+    }
+  }
+
   if (input.customerName?.trim()) {
     payload.customer_name = input.customerName.trim();
   }
@@ -166,4 +174,84 @@ export async function createOrderInApi(
     customerPhone: order.customerPhone ?? input.customerPhone?.trim(),
     bookId: order.bookId || String(bookId),
   };
+}
+
+export async function updateOrderInApi(
+  id: string,
+  input: UpdateOrderInput
+): Promise<Order> {
+  const quantity = Number(input.quantity);
+  const unitPrice = Number(input.unitPrice);
+
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    throw new Error("Quantity must be a positive whole number.");
+  }
+  if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+    throw new Error("Enter a valid unit price.");
+  }
+
+  const bookTitle = input.bookTitle.trim();
+  const author = input.author.trim();
+  if (!bookTitle) throw new Error("Book title is required.");
+  if (!author) throw new Error("Author is required.");
+
+  const revenue =
+    input.revenue != null && Number.isFinite(Number(input.revenue))
+      ? Number(input.revenue)
+      : Number((quantity * unitPrice).toFixed(2));
+  const profit =
+    input.profit != null && Number.isFinite(Number(input.profit))
+      ? Number(input.profit)
+      : revenue;
+
+  const payload: Record<string, string | number> = {
+    book: bookTitle,
+    author,
+    quantity,
+    unit_price: unitPrice,
+    revenue,
+    profit,
+  };
+
+  if (input.soldAt?.trim()) {
+    payload.date_time = input.soldAt.trim();
+  }
+
+  const response = await fetch(`${ORDERS_API_URL}/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+
+  const json: {
+    success: boolean;
+    data?: ApiOrder;
+    error?: string;
+    message?: string;
+  } = await response.json();
+
+  if (!response.ok || !json.success || !json.data) {
+    throw new Error(
+      json.error ?? json.message ?? `Failed to update order (${response.status})`
+    );
+  }
+
+  return mapApiOrder(json.data);
+}
+
+export async function deleteOrderInApi(id: string): Promise<void> {
+  const response = await fetch(`${ORDERS_API_URL}/${id}`, {
+    method: "DELETE",
+    cache: "no-store",
+  });
+
+  const json: { success: boolean; error?: string; message?: string } =
+    await response.json();
+
+  if (!response.ok || !json.success) {
+    throw new Error(
+      json.error ?? json.message ?? `Failed to cancel order (${response.status})`
+    );
+  }
 }

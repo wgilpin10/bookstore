@@ -1,75 +1,81 @@
-import { Customer, CustomerOrderSummary, SaleRecord } from "@/types/customer";
+import {
+  dedupeCustomersByPhone,
+  normalizePhone,
+} from "@/lib/customer-utils";
+import { fetchCustomersFromApi } from "@/lib/customers-api";
 import { readSales } from "@/lib/sales-store";
+import {
+  Customer,
+  CustomerSaleGroup,
+  SaleRecord,
+} from "@/types/customer";
 
-function normalizePhone(phone: string): string {
-  return phone.replace(/\s+/g, "").trim();
-}
-
-export async function getCustomers(): Promise<Customer[]> {
-  const sales = await readSales();
-  const byPhone = new Map<
-    string,
-    {
-      name: string;
-      phone: string;
-      orders: CustomerOrderSummary[];
-    }
-  >();
+/** Group recorded sales by normalized phone number. */
+function salesByPhone(
+  sales: SaleRecord[]
+): Map<string, CustomerSaleGroup[]> {
+  const byPhone = new Map<string, CustomerSaleGroup[]>();
 
   for (const sale of sales) {
     const phoneKey = normalizePhone(sale.customerPhone);
     if (!phoneKey) continue;
 
-    const existing = byPhone.get(phoneKey) ?? {
-      name: sale.customerName,
-      phone: sale.customerPhone.trim(),
-      orders: [],
-    };
-
-    // Prefer the most recently used name for this phone.
-    existing.name = sale.customerName.trim() || existing.name;
-
-    for (const item of sale.items) {
-      existing.orders.push({
+    const group: CustomerSaleGroup = {
+      saleId: sale.id,
+      soldAt: sale.soldAt,
+      totalRevenue: sale.totalRevenue,
+      totalProfit: sale.totalProfit,
+      items: sale.items.map((item) => ({
         orderId: item.orderId,
         bookTitle: item.bookTitle,
         quantity: item.quantity,
         revenue: item.revenue,
         profit: item.profit,
         soldAt: sale.soldAt,
-      });
-    }
+      })),
+    };
 
-    byPhone.set(phoneKey, existing);
+    const list = byPhone.get(phoneKey) ?? [];
+    if (!list.some((existing) => existing.saleId === group.saleId)) {
+      list.push(group);
+    }
+    byPhone.set(phoneKey, list);
   }
 
-  const customers: Customer[] = Array.from(byPhone.entries()).map(
-    ([phoneKey, data]) => {
-      const orders = data.orders.sort((a, b) => {
-        const aTime = new Date(a.soldAt).getTime();
-        const bTime = new Date(b.soldAt).getTime();
-        return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
-      });
+  for (const list of byPhone.values()) {
+    list.sort((a, b) => {
+      const aTime = new Date(a.soldAt).getTime();
+      const bTime = new Date(b.soldAt).getTime();
+      return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
+    });
+  }
 
-      const totalSpent = orders.reduce((sum, order) => sum + order.revenue, 0);
-      const totalProfit = orders.reduce((sum, order) => sum + order.profit, 0);
-      const lastOrderAt = orders[0]?.soldAt ?? "";
+  return byPhone;
+}
 
-      return {
-        id: phoneKey,
-        name: data.name,
-        phone: data.phone,
-        totalSpent,
-        totalProfit,
-        orderCount: orders.length,
-        lastOrderAt,
-        orders,
-      };
-    }
-  );
+/**
+ * One customer per phone number from the database.
+ * Separate sales for that phone are attached for the dropdown.
+ */
+export async function getCustomers(): Promise<Customer[]> {
+  const [apiCustomers, sales] = await Promise.all([
+    fetchCustomersFromApi(),
+    readSales(),
+  ]);
 
-  // Highest spenders first.
-  return customers.sort((a, b) => b.totalSpent - a.totalSpent);
+  const customers = dedupeCustomersByPhone(apiCustomers);
+  const history = salesByPhone(sales);
+
+  return customers.map((customer) => {
+    const phoneKey = normalizePhone(customer.phone);
+    const saleGroups = history.get(phoneKey) ?? [];
+
+    return {
+      ...customer,
+      // Database `sales` count is the source of truth; local history is for the dropdown.
+      sales: saleGroups,
+    };
+  });
 }
 
 export function buildCustomerLookup(
